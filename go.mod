@@ -1,6 +1,6 @@
-module github.com/kaleab49/fzfclone.git
+module github.com/kaleab49/fzfclone
 
-go 1.25.2
+go 1.24.0
 
 require (
 	github.com/gdamore/tcell/v2 v2.9.0

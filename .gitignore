@@ -1,0 +1,27 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Go build artifacts
+/bin/
+/build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Dependency / tooling caches
+/vendor/
+/coverage/
+.cache/
+
+# VCS / common large dirs
+node_modules/
+dist/
+.git/

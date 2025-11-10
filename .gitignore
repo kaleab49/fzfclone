@@ -15,7 +15,7 @@
 *.dylib
 *.test
 *.out
-
+fzfclone
 # Dependency / tooling caches
 /vendor/
 /coverage/

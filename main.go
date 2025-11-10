@@ -160,6 +160,7 @@ func scanFiles(ctx context.Context, root string, out chan<- string, ignoredDirs 
 	var g errgroup.Group
 
 	g.Go(func() error {
+		rootClean := filepath.Clean(root)
 		return godirwalk.Walk(root, &godirwalk.Options{
 			Unsorted:            true,
 			FollowSymbolicLinks: false,
@@ -169,7 +170,8 @@ func scanFiles(ctx context.Context, root string, out chan<- string, ignoredDirs 
 				}
 				base := filepath.Base(path)
 				if de.IsDir() {
-					if !includeHidden && strings.HasPrefix(base, ".") {
+					// Do not treat the root directory as hidden even if it's "."
+					if !includeHidden && strings.HasPrefix(base, ".") && filepath.Clean(path) != rootClean {
 						return godirwalk.SkipThis
 					}
 					if _, skip := ignoredDirs[base]; skip {

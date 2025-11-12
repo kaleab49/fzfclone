@@ -5,7 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -27,6 +29,9 @@ func main() {
 	maxResultsFlag := flag.Int("max-results", 15, "Maximum number of results to display")
 	hiddenFlag := flag.Bool("hidden", false, "Include hidden files and directories")
 	ignoreGitFlag := flag.Bool("ignore-git", true, "Respect .gitignore in the root directory if present")
+	openFlag := flag.Bool("open", true, "Open selected file with default editor (use --print to just print path)")
+	printFlag := flag.Bool("print", false, "Print selected file path to stdout instead of opening")
+	editorFlag := flag.String("editor", "", "Editor command to use (defaults to $EDITOR or system default)")
 	flag.Parse()
 
 	screen, err := tcell.NewScreen()
@@ -108,7 +113,12 @@ func main() {
 				continue
 			} else if ev.Key() == tcell.KeyEnter {
 				if len(lastResults) > 0 {
-					fmt.Println(lastResults[selected])
+					selectedPath := lastResults[selected]
+					if *printFlag || !*openFlag {
+						fmt.Println(selectedPath)
+					} else {
+						openFile(selectedPath, *editorFlag)
+					}
 				}
 				cancel()
 				return
@@ -225,7 +235,7 @@ func showResults(s tcell.Screen, query string, results []string, max int, select
 	// Footer / help
 	w, h := s.Size()
 	_ = w
-	footer := "↑/↓ move  •  Enter select  •  ESC quit"
+	footer := "↑/↓ move  •  Enter open  •  ESC quit"
 	drawText(s, 0, h-1, footer, tcell.StyleDefault.Dim(true))
 
 	s.Show()
@@ -267,4 +277,50 @@ func loadIgnoreRules(root string, respectGitignore bool) (map[string]struct{}, [
 		globs = append(globs, ln)
 	}
 	return ignoredDirs, globs
+}
+
+// openFile opens the selected file with the specified editor or system default
+func openFile(path string, editor string) {
+	var cmd *exec.Cmd
+
+	// Determine editor command
+	if editor != "" {
+		cmd = exec.Command(editor, path)
+	} else if envEditor := os.Getenv("EDITOR"); envEditor != "" {
+		cmd = exec.Command(envEditor, path)
+	} else {
+		// Fallback to system default
+		switch runtime.GOOS {
+		case "linux":
+			cmd = exec.Command("xdg-open", path)
+		case "darwin":
+			cmd = exec.Command("open", path)
+		case "windows":
+			cmd = exec.Command("cmd", "/c", "start", "", path)
+		default:
+			// Try common editors as last resort
+			for _, e := range []string{"vim", "nano", "code", "nvim"} {
+				if _, err := exec.LookPath(e); err == nil {
+					cmd = exec.Command(e, path)
+					break
+				}
+			}
+			if cmd == nil {
+				fmt.Fprintf(os.Stderr, "No editor found. Set $EDITOR or use --editor flag.\n")
+				fmt.Println(path) // Fallback to printing
+				return
+			}
+		}
+	}
+
+	// Run editor in background (detached)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening file: %v\n", err)
+		fmt.Println(path) // Fallback to printing
+		return
+	}
+	// Don't wait for editor to close
 }
